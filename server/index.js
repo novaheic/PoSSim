@@ -80,7 +80,7 @@ function finalizeAttestation(lobby) {
     if (!p.connected) continue;
     if (Object.prototype.hasOwnProperty.call(att.submitted, p.id)) continue;
     p.attestationsMiss += 1;
-    p.balance = Math.max(0, roundEth(p.balance - lobby.config.attestationPenaltyEth));
+    applyPenalty(p, lobby.config.attestationPenaltyEth);
     logAction(
       lobby,
       "slash",
@@ -119,13 +119,14 @@ function proposeBlock(lobby) {
     return;
   }
   proposer.blocksProposed += 1;
-  proposer.balance = roundEth(proposer.balance + lobby.config.blockRewardEth);
+  grantReward(proposer, lobby.config.blockRewardEth);
   logAction(
     lobby,
     "block",
     `${proposer.name} proposed block #${lobby.blockIndex} (+${lobby.config.blockRewardEth} ETH) — selected by stake weight`,
     { playerId: proposer.id },
   );
+  lobby.nextBlockAt = Date.now() + lobby.config.blockIntervalMs;
   broadcast(lobby);
 }
 
@@ -133,11 +134,24 @@ function roundEth(n) {
   return Math.round(n * 1000) / 1000;
 }
 
+function grantReward(player, amount) {
+  const a = roundEth(amount);
+  player.rewardsTotal = roundEth((player.rewardsTotal || 0) + a);
+  player.balance = roundEth(player.balance + a);
+}
+
+function applyPenalty(player, amount) {
+  const a = roundEth(amount);
+  player.penaltiesTotal = roundEth((player.penaltiesTotal || 0) + a);
+  player.balance = Math.max(0, roundEth(player.balance - a));
+}
+
 function startSimulation(lobby) {
   if (lobby.status === "running") return;
   lobby.status = "running";
   lobby.startedAt = Date.now();
   logAction(lobby, "system", "Simulation started — attest every 30s, blocks every few minutes");
+  lobby.nextBlockAt = Date.now() + lobby.config.blockIntervalMs;
   startAttestationRound(lobby);
   lobby.timers.block = setInterval(() => proposeBlock(lobby), lobby.config.blockIntervalMs);
   lobby.timers.attestation = setInterval(
@@ -172,10 +186,14 @@ function handleJoin(ws, msg) {
   const usedNames = new Set([...lobby.players.values()].map((p) => p.name));
   if (!player) {
     const cfg = lobby.config;
+    const stake = randomStake(cfg.minStakeEth, cfg.maxStakeEth);
     player = {
       id: playerId,
       name: msg.name?.trim()?.slice(0, 20) || randomPlayerName(usedNames),
-      balance: randomStake(cfg.minStakeEth, cfg.maxStakeEth),
+      balance: stake,
+      startingBalance: stake,
+      rewardsTotal: 0,
+      penaltiesTotal: 0,
       connected: true,
       ws,
       attestationsOk: 0,
@@ -193,6 +211,9 @@ function handleJoin(ws, msg) {
   } else {
     player.connected = true;
     player.ws = ws;
+    if (player.startingBalance == null) player.startingBalance = player.balance;
+    if (player.rewardsTotal == null) player.rewardsTotal = 0;
+    if (player.penaltiesTotal == null) player.penaltiesTotal = 0;
     if (msg.name?.trim()) player.name = msg.name.trim().slice(0, 20);
     logAction(lobby, "join", `${player.name} reconnected`, { playerId: player.id });
   }
@@ -227,7 +248,7 @@ function handleAttestation(ws, msg) {
 
   if (ok) {
     player.attestationsOk += 1;
-    player.balance = roundEth(player.balance + lobby.config.attestationRewardEth);
+    grantReward(player, lobby.config.attestationRewardEth);
     logAction(
       lobby,
       "attestation_ok",
@@ -236,7 +257,7 @@ function handleAttestation(ws, msg) {
     );
   } else {
     player.attestationsMiss += 1;
-    player.balance = Math.max(0, roundEth(player.balance - lobby.config.attestationPenaltyEth));
+    applyPenalty(player, lobby.config.attestationPenaltyEth);
     logAction(
       lobby,
       "attestation_fail",

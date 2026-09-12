@@ -83,6 +83,7 @@ export function createLobby(id, config = {}) {
     attestation: null,
     attestationIndex: 0,
     blockIndex: 0,
+    nextBlockAt: null,
     timers: { attestation: null, block: null },
   };
 }
@@ -101,16 +102,27 @@ export function logAction(lobby, type, message, meta = {}) {
 }
 
 export function publicPlayer(p) {
+  const starting = p.startingBalance ?? p.balance;
+  const rewards = p.rewardsTotal ?? 0;
+  const penalties = p.penaltiesTotal ?? 0;
   return {
     id: p.id,
     name: p.name,
     balance: p.balance,
+    startingBalance: starting,
+    rewardsTotal: rewards,
+    penaltiesTotal: penalties,
+    netChange: roundEth(p.balance - starting),
     connected: p.connected,
     attestationsOk: p.attestationsOk,
     attestationsMiss: p.attestationsMiss,
     blocksProposed: p.blocksProposed,
     lastAttestationAt: p.lastAttestationAt,
   };
+}
+
+function roundEth(n) {
+  return Math.round(n * 1000) / 1000;
 }
 
 export function publicLobby(lobby) {
@@ -122,6 +134,7 @@ export function publicLobby(lobby) {
     config: lobby.config,
     attestationIndex: lobby.attestationIndex,
     blockIndex: lobby.blockIndex,
+    nextBlockAt: lobby.nextBlockAt,
     players: [...lobby.players.values()].map(publicPlayer).sort((a, b) => b.balance - a.balance),
     actionLog: lobby.actionLog,
     attestation: att

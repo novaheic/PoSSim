@@ -1,3 +1,5 @@
+import QRCode from "qrcode";
+
 const STORAGE_PLAYER = "possim_player_id";
 const STORAGE_LOBBY = "possim_last_lobby";
 
@@ -22,6 +24,27 @@ function lobbyPath(id) {
 
 function inviteUrl(id) {
   return `${location.origin}${lobbyPath(id)}`;
+}
+
+async function refreshInviteQr() {
+  const wrap = $("inviteQr");
+  const canvas = $("inviteQrCanvas");
+  if (!lobbyId) {
+    wrap.hidden = true;
+    return;
+  }
+  const url = inviteUrl(lobbyId);
+  $("inviteQrUrl").textContent = url;
+  try {
+    await QRCode.toCanvas(canvas, url, {
+      width: 200,
+      margin: 1,
+      color: { dark: "#131722", light: "#ffffff" },
+    });
+    wrap.hidden = false;
+  } catch {
+    wrap.hidden = true;
+  }
 }
 
 function parseLobbyFromPath() {
@@ -93,6 +116,7 @@ function applyLobby(lobby) {
   if (me) {
     $("youName").textContent = me.name;
     $("youBalance").textContent = me.balance.toFixed(3);
+    renderYouPnl(me);
     $("youOk").textContent = me.attestationsOk;
     $("youMiss").textContent = me.attestationsMiss;
     $("youBlocks").textContent = me.blocksProposed;
@@ -112,9 +136,74 @@ function applyLobby(lobby) {
     $("startBtn").hidden = connected < 1;
   }
 
+  $("blockSlot").hidden = lobby.status !== "running";
+  if (lobby.status === "running") {
+    $("nextBlockNum").textContent = String(lobby.blockIndex + 1);
+  }
+
   renderPlayers(lobby);
   renderAttestation(lobby);
   renderLog(lobby);
+  syncUiTimers(lobby);
+}
+
+function formatSignedEth(n, sign) {
+  const abs = Math.abs(n).toFixed(3);
+  if (sign === "+") return `+${abs}`;
+  if (sign === "−") return `−${abs}`;
+  if (n > 0) return `+${abs}`;
+  if (n < 0) return `−${abs}`;
+  return `±${abs}`;
+}
+
+function renderYouPnl(me) {
+  const rewards = me.rewardsTotal ?? 0;
+  const penalties = me.penaltiesTotal ?? 0;
+  const net = me.netChange ?? me.balance - (me.startingBalance ?? me.balance);
+  const el = $("youPnl");
+  el.querySelector(".pnl-reward").textContent = `Rewards ${formatSignedEth(rewards, "+")}`;
+  el.querySelector(".pnl-penalty").textContent = `Penalties ${formatSignedEth(penalties, "−")}`;
+  const netSpan = el.querySelector(".pnl-net");
+  netSpan.textContent = `Net ${formatSignedEth(net)} ETH`;
+  netSpan.classList.remove("positive", "negative", "flat");
+  if (net > 0) netSpan.classList.add("positive");
+  else if (net < 0) netSpan.classList.add("negative");
+  else netSpan.classList.add("flat");
+}
+
+function formatCountdown(ms) {
+  const totalSec = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return m > 0 ? `${m}:${String(s).padStart(2, "0")}` : `${s}s`;
+}
+
+function updateLiveTimers() {
+  const lobby = lobbyState;
+  if (!lobby) return;
+
+  const att = lobby.attestation;
+  if (att) {
+    $("attTimer").textContent = `${(Math.max(0, att.endsAt - Date.now()) / 1000).toFixed(1)}s`;
+  } else {
+    $("attTimer").textContent = "—";
+  }
+
+  if (lobby.status === "running" && lobby.nextBlockAt) {
+    $("blockTimer").textContent = formatCountdown(lobby.nextBlockAt - Date.now());
+  } else {
+    $("blockTimer").textContent = "—";
+  }
+}
+
+function syncUiTimers(lobby) {
+  if (lobby.status === "running") {
+    updateLiveTimers();
+    if (!timerInterval) timerInterval = setInterval(updateLiveTimers, 200);
+  } else if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
 }
 
 function renderPlayers(lobby) {
@@ -142,9 +231,6 @@ function renderAttestation(lobby) {
   if (!att) {
     $("puzzlePrompt").textContent =
       lobby.status === "running" ? "Between attestation rounds…" : "Simulation not started yet.";
-    $("attTimer").textContent = "—";
-    if (timerInterval) clearInterval(timerInterval);
-    timerInterval = null;
     return;
   }
 
@@ -163,14 +249,6 @@ function renderAttestation(lobby) {
     });
     choicesEl.appendChild(btn);
   }
-
-  const tick = () => {
-    const left = Math.max(0, att.endsAt - Date.now());
-    $("attTimer").textContent = `${(left / 1000).toFixed(1)}s`;
-  };
-  tick();
-  if (timerInterval) clearInterval(timerInterval);
-  timerInterval = setInterval(tick, 100);
 }
 
 function renderLog(lobby) {
@@ -235,9 +313,10 @@ $("startBtn").addEventListener("click", () => {
       lobbyId = await ensureLobbyId();
       $("lobbyCode").textContent = lobbyId;
       $("lobbyChip").hidden = false;
-      $("connectHint").textContent = "Share the link above, then enter to join as a validator.";
+      $("connectHint").textContent = "Share the QR or link, then enter to join as a validator.";
     } catch {
       $("connectHint").textContent = "Could not create lobby — start the server and refresh.";
     }
   }
+  await refreshInviteQr();
 })();

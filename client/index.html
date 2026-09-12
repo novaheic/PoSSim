@@ -35,6 +35,11 @@
           You’ll get a random ETH stake, attest with quick math every 30 seconds, and sometimes
           propose a block — weighted by how much you stake, like real PoS.
         </p>
+        <div class="invite-qr" id="inviteQr" hidden>
+          <p class="invite-qr-title">Scan to join this lobby</p>
+          <canvas id="inviteQrCanvas" width="200" height="200" aria-label="QR code for lobby invite link"></canvas>
+          <p class="invite-qr-url" id="inviteQrUrl"></p>
+        </div>
         <div class="connect-row">
           <label class="field">
             <span>Display name (optional)</span>
@@ -51,6 +56,13 @@
           <div class="you-card">
             <div class="you-name" id="youName">—</div>
             <div class="you-balance"><span id="youBalance">0</span> <small>ETH</small></div>
+            <p class="you-pnl" id="youPnl" aria-live="polite">
+              <span class="pnl-reward">Rewards +0.000</span>
+              <span class="pnl-sep">·</span>
+              <span class="pnl-penalty">Penalties −0.000</span>
+              <span class="pnl-sep">·</span>
+              <span class="pnl-net">Net ±0.000</span>
+            </p>
             <dl class="mini-stats">
               <div><dt>Attestations ✓</dt><dd id="youOk">0</dd></div>
               <div><dt>Missed / wrong</dt><dd id="youMiss">0</dd></div>
@@ -58,6 +70,11 @@
             </dl>
           </div>
           <div class="status-pill" id="simStatus">Waiting for validators…</div>
+          <div class="block-slot" id="blockSlot" hidden>
+            <span class="block-slot-label">Next block slot</span>
+            <span class="block-slot-timer" id="blockTimer">—</span>
+            <span class="block-slot-meta">Block <span id="nextBlockNum">1</span> · stake-weighted lottery</span>
+          </div>
           <button type="button" class="btn secondary full" id="startBtn" hidden>
             Start simulation (2+ connected)
           </button>
