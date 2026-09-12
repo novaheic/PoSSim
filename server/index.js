@@ -70,32 +70,30 @@ function clearLobbyTimers(lobby) {
   lobby.timers.block = null;
 }
 
-function closeAttestation(lobby) {
+/** Penalize players who never submitted before the round ends (not wrong answers — those are handled on submit). */
+function finalizeAttestation(lobby) {
   const att = lobby.attestation;
   if (!att || att.closed) return;
   att.closed = true;
 
   for (const p of lobby.players.values()) {
     if (!p.connected) continue;
-    const sub = att.submitted[p.id];
-    if (!sub) {
-      p.attestationsMiss += 1;
-      p.balance = Math.max(0, roundEth(p.balance - lobby.config.attestationPenaltyEth));
-      logAction(
-        lobby,
-        "slash",
-        `${p.name} missed attestation #${lobby.attestationIndex} (−${lobby.config.attestationPenaltyEth} ETH)`,
-        { playerId: p.id },
-      );
-    }
+    if (Object.prototype.hasOwnProperty.call(att.submitted, p.id)) continue;
+    p.attestationsMiss += 1;
+    p.balance = Math.max(0, roundEth(p.balance - lobby.config.attestationPenaltyEth));
+    logAction(
+      lobby,
+      "slash",
+      `${p.name} missed attestation #${lobby.attestationIndex} (−${lobby.config.attestationPenaltyEth} ETH)`,
+      { playerId: p.id },
+    );
   }
   lobby.attestation = null;
-  broadcast(lobby);
 }
 
 function startAttestationRound(lobby) {
   if (lobby.status !== "running") return;
-  closeAttestation(lobby);
+  finalizeAttestation(lobby);
   lobby.attestationIndex += 1;
   const puzzle = makePuzzle();
   const endsAt = Date.now() + lobby.config.attestationIntervalMs;
@@ -108,8 +106,6 @@ function startAttestationRound(lobby) {
   };
   logAction(lobby, "attestation", `Attestation #${lobby.attestationIndex} started — answer within 30s`);
   broadcast(lobby);
-
-  setTimeout(() => closeAttestation(lobby), lobby.config.attestationIntervalMs + 50);
 }
 
 function proposeBlock(lobby) {
@@ -221,7 +217,7 @@ function handleAttestation(ws, msg) {
   const player = lobby.players.get(ws.playerId);
   if (!player) return;
   const att = lobby.attestation;
-  if (att.submitted[player.id]) return;
+  if (Object.prototype.hasOwnProperty.call(att.submitted, player.id)) return;
   if (Date.now() > att.endsAt) return;
 
   const choice = Number(msg.choice);
