@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PoSSim — Proof of Stake Classroom</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="top">
+        <div class="brand">
+          <span class="logo" aria-hidden="true">◆</span>
+          <div>
+            <h1>PoSSim</h1>
+            <p class="tagline">Proof of Stake, playfully</p>
+          </div>
+        </div>
+        <div class="lobby-chip" id="lobbyChip" hidden>
+          <span class="label">Lobby</span>
+          <code id="lobbyCode">——</code>
+          <button type="button" class="btn ghost" id="copyLinkBtn">Copy invite link</button>
+        </div>
+      </header>
+
+      <section class="hero panel" id="connectPanel">
+        <h2>Join the validator set</h2>
+        <p class="lead">
+          You’ll get a random ETH stake, attest with quick math every 30 seconds, and sometimes
+          propose a block — weighted by how much you stake, like real PoS.
+        </p>
+        <div class="connect-row">
+          <label class="field">
+            <span>Display name (optional)</span>
+            <input type="text" id="nameInput" maxlength="20" placeholder="Random name if empty" />
+          </label>
+          <button type="button" class="btn primary" id="joinBtn">Enter lobby</button>
+        </div>
+        <p class="hint" id="connectHint"></p>
+      </section>
+
+      <main class="grid" id="gameGrid" hidden>
+        <section class="panel stats">
+          <h2>Your validator</h2>
+          <div class="you-card">
+            <div class="you-name" id="youName">—</div>
+            <div class="you-balance"><span id="youBalance">0</span> <small>ETH</small></div>
+            <dl class="mini-stats">
+              <div><dt>Attestations ✓</dt><dd id="youOk">0</dd></div>
+              <div><dt>Missed / wrong</dt><dd id="youMiss">0</dd></div>
+              <div><dt>Blocks proposed</dt><dd id="youBlocks">0</dd></div>
+            </dl>
+          </div>
+          <div class="status-pill" id="simStatus">Waiting for validators…</div>
+          <button type="button" class="btn secondary full" id="startBtn" hidden>
+            Start simulation (2+ connected)
+          </button>
+        </section>
+
+        <section class="panel attestation" id="attestationPanel">
+          <div class="panel-head">
+            <h2>Attestation duty</h2>
+            <span class="timer" id="attTimer">—</span>
+          </div>
+          <p class="explain">
+            Validators must stay online and vote on chain state. Here, a correct answer in time
+            simulates a good attestation.
+          </p>
+          <p class="puzzle" id="puzzlePrompt">Waiting for next attestation round…</p>
+          <div class="choices" id="choices"></div>
+        </section>
+
+        <section class="panel validators">
+          <h2>Validator set <span class="count" id="playerCount">0</span></h2>
+          <p class="explain small">Higher stake = higher chance to propose the next block.</p>
+          <ul class="player-list" id="playerList"></ul>
+        </section>
+
+        <section class="panel feed">
+          <h2>Network activity</h2>
+          <ul class="action-log" id="actionLog"></ul>
+        </section>
+      </main>
+
+      <footer class="foot">
+        <p>
+          Classroom simulation only — not Ethereum. Attestations every
+          <strong>30s</strong>; blocks about every <strong id="blockIntervalLabel">2</strong>
+          minutes.
+        </p>
+      </footer>
+    </div>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>
